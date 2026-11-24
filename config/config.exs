@@ -41,4 +41,21 @@ config :phoenix, :json_library, Jason
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
+config :absinthe_initializer_demo, AbsintheInitializerDemo.Auth,
+  transport: :bearer,
+  cookie_name: "_absinthe_initializer_demo_session",
+  cookie_opts: [
+    http_only: true,
+    secure: config_env() == :prod,
+    same_site: "Lax",
+    path: "/",
+    max_age: 604_800
+  ],
+  csrf_protection: true,
+  trust_proxy: false,
+  session_ttl_days: 7,
+  cache: :none,
+  cache_ttl_seconds: 300,
+  rate_limit: [enabled: false, max_requests: 10, window_seconds: 60]
+
 import_config "#{config_env()}.exs"

@@ -1,0 +1,150 @@
+defmodule AbsintheInitializerDemoWeb.Plugs.SetCurrentUser do
+  @moduledoc """
+  Plug that extracts the session token (from Bearer header and/or HttpOnly cookie
+  depending on `AbsintheInitializerDemo.Auth.Config.transport/0`), enforces CSRF checks
+  on cookie-authenticated requests, resolves `current_user` once (via cache or database),
+  blocks invalid token spraying, and populates the Absinthe context.
+  """
+
+  @behaviour Plug
+
+  import Plug.Conn
+
+  alias AbsintheInitializerDemo.Accounts
+  alias AbsintheInitializerDemo.Auth.Config
+
+  @impl Plug
+  def init(opts), do: opts
+
+  @impl Plug
+  def call(conn, _opts) do
+    conn = if Config.cookies_enabled?(), do: fetch_cookies(conn), else: conn
+    context = build_context(conn)
+    Absinthe.Plug.put_options(conn, context: context)
+  end
+
+  defp build_context(conn) do
+    remote_ip = extract_remote_ip(conn)
+    base = %{remote_ip: remote_ip}
+
+    case extract_token(conn) do
+      {:ok, :cookie, token} ->
+        if csrf_safe?(conn) do
+          resolve_token_context(base, remote_ip, :cookie, token)
+        else
+          Map.put(base, :auth_error, :csrf_rejected)
+        end
+
+      {:ok, :bearer, token} ->
+        resolve_token_context(base, remote_ip, :bearer, token)
+
+      :error ->
+        base
+    end
+  end
+
+  defp csrf_safe?(conn) do
+    if Config.csrf_protection?() do
+      not cross_site_fetch?(conn) and valid_cookie_content_type?(conn)
+    else
+      true
+    end
+  end
+
+  defp cross_site_fetch?(conn) do
+    case get_req_header(conn, "sec-fetch-site") do
+      ["cross-site"] -> true
+      _ -> false
+    end
+  end
+
+  defp valid_cookie_content_type?(%{method: "GET"}), do: true
+
+  defp valid_cookie_content_type?(conn) do
+    case get_req_header(conn, "content-type") do
+      [content_type | _] ->
+        content_type
+        |> String.downcase()
+        |> String.starts_with?("application/json")
+
+      [] ->
+        false
+    end
+  end
+
+  defp resolve_token_context(base, remote_ip, source, token) do
+    if invalid_token_blocked?(remote_ip) do
+      base
+      |> Map.put(:auth_error, :rate_limited)
+      |> maybe_clear_cookie(source)
+    else
+      case Accounts.get_user_by_session_token(token) do
+        nil ->
+          auth_error = record_invalid_token_attempt(remote_ip)
+
+          base
+          |> Map.put(:auth_error, auth_error)
+          |> maybe_clear_cookie(source)
+
+        user ->
+          Map.merge(base, %{current_user: user, token: token})
+      end
+    end
+  end
+
+  defp maybe_clear_cookie(context, :cookie) do
+    if Config.cookies_enabled?() do
+      Map.put(context, :auth_cookie, :delete)
+    else
+      context
+    end
+  end
+
+  defp maybe_clear_cookie(context, _source), do: context
+
+  defp invalid_token_blocked?(_remote_ip), do: false
+  defp record_invalid_token_attempt(_remote_ip), do: :invalid_token
+
+  defp extract_token(conn) do
+    case Config.transport() do
+      :bearer -> extract_bearer_token(conn)
+      :cookie -> extract_cookie_token(conn)
+      :both -> extract_bearer_token(conn) |> fallback_to_cookie(conn)
+    end
+  end
+
+  defp fallback_to_cookie({:ok, _, _} = result, _conn), do: result
+  defp fallback_to_cookie(:error, conn), do: extract_cookie_token(conn)
+
+  defp extract_bearer_token(conn) do
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> token] when byte_size(token) > 0 -> {:ok, :bearer, token}
+      _ -> :error
+    end
+  end
+
+  defp extract_cookie_token(conn) do
+    case Map.get(conn.cookies, Config.cookie_name()) do
+      token when is_binary(token) and byte_size(token) > 0 -> {:ok, :cookie, token}
+      _ -> :error
+    end
+  end
+
+  defp extract_remote_ip(conn) do
+    if Config.trust_proxy?() do
+      case get_req_header(conn, "x-forwarded-for") do
+        [forwarded | _] ->
+          forwarded |> String.split(",") |> List.last() |> String.trim()
+
+        [] ->
+          format_peer_ip(conn)
+      end
+    else
+      format_peer_ip(conn)
+    end
+  end
+
+  defp format_peer_ip(conn) do
+    conn.remote_ip |> :inet.ntoa() |> to_string()
+  end
+end

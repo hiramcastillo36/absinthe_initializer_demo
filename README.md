@@ -1,18 +1,17 @@
-# AbsintheInitializerDemo
+# AbsintheInitializer Demo — `auth-minimal`
 
-To start your Phoenix server:
+This branch showcases **minimal Bearer authentication** (direct PostgreSQL lookup, no cache, no ETS rate limiter):
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+```bash
+mix absinthe_initializer --auth --auth-transport bearer --cache none --no-rate-limit
+```
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+- Sets `transport: :bearer`, `cache: :none`, and `rate_limit: [enabled: false, ...]` in `config/config.exs`.
+- Does **not** add any extra supervision children to `application.ex` (no ETS cache, no Cachex, no RateLimiter).
+- Still hashes session tokens with SHA-256 in PostgreSQL, prevents `is_admin` mass assignment, protects `/graphiql` behind `:dev_routes`, and enforces GraphQL complexity limits.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Run with Docker Compose
 
-## Learn more
-
-* Official website: https://www.phoenixframework.org/
-* Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+```bash
+docker compose up --build
+```
