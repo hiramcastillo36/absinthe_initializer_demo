@@ -1,0 +1,13 @@
+defmodule AbsintheInitializerDemoWeb.Schema do
+  use Absinthe.Schema
+
+  import_types Absinthe.Type.Custom
+
+  query do
+    field :hello, :string do
+      resolve fn _, _, _ ->
+        {:ok, "world"}
+      end
+    end
+  end
+end

@@ -1,18 +1,26 @@
-# AbsintheInitializerDemo
+# AbsintheInitializer Demo — `basic-no-auth`
 
-To start your Phoenix server:
+This branch showcases the minimal GraphQL setup generated without authentication:
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+```bash
+mix absinthe_initializer
+```
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+- Adds `absinthe`, `absinthe_plug`, and `absinthe_phoenix` to `mix.exs`.
+- Mounts `/api` (with complexity limit `200`) and `/graphiql` (dev only) in `router.ex`.
+- Generates `Schema` (`query { hello }`) and `ChangesetErrors`.
+- Does **not** generate accounts, migrations, plugs, caching, or rate limiting.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Run with Docker Compose
 
-## Learn more
+```bash
+docker compose up --build
+```
 
-* Official website: https://www.phoenixframework.org/
-* Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+```bash
+curl -X POST http://localhost:4000/api \
+  -H "Content-Type: application/json" \
+  -d '{"query": "query { hello }"}'
+```
+
+See the [`main`](https://github.com/hiramcastillo36/absinthe_initializer) branch for the full branch comparison table.
