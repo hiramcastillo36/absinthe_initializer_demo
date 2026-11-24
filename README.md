@@ -1,18 +1,28 @@
-# AbsintheInitializerDemo
+# AbsintheInitializer Demo — `auth-cookie-only`
 
-To start your Phoenix server:
+This branch showcases **HttpOnly Cookie-only** authentication (ideal for browser SPAs):
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+```bash
+mix absinthe_initializer --auth --auth-transport cookie --cache ets
+```
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+- Sets `transport: :cookie` in `config/config.exs`.
+- `signUp` and `signIn` deliver the session token exclusively via an `HttpOnly` cookie and strip `token` (`null`) from the JSON response body.
+- `Authorization: Bearer` headers are ignored; cookie CSRF checks (`Sec-Fetch-Site` + `Content-Type: application/json`) are enforced.
+- Uses zero-dependency ETS session cache and ETS rate limiting.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Run with Docker Compose
 
-## Learn more
+```bash
+docker compose up --build
+```
 
-* Official website: https://www.phoenixframework.org/
-* Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+```bash
+curl -i -c cookies.txt -X POST http://localhost:4000/api \
+  -H "Content-Type: application/json" \
+  -d '{"query":"mutation($e:String!,$p:String!){signUp(email:$e,password:$p){token user{id email}}}","variables":{"e":"spa@example.com","p":"super_secure_password_123"}}'
+
+curl -b cookies.txt -X POST http://localhost:4000/api \
+  -H "Content-Type: application/json" \
+  -d '{"query":"query { me { id email } }"}'
+```
