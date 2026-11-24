@@ -1,18 +1,29 @@
-# AbsintheInitializerDemo
+# AbsintheInitializer Demo — `auth-bearer-cachex`
 
-To start your Phoenix server:
+This branch showcases **Bearer-only** authentication backed by **Cachex**:
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+```bash
+mix absinthe_initializer --auth --auth-transport bearer --cache cachex
+```
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+- Sets `transport: :bearer` and `cache: :cachex` in `config/config.exs`.
+- Adds `{:cachex, "~> 4.0"}` to `mix.exs` and `{Cachex, name: :absinthe_initializer_demo_session_cache}` to `application.ex`.
+- Does **not** generate `AuthCookie` plug/middleware or set response cookies.
+- Enforces ETS rate limiting on `signUp`, `signIn` (IP + email), and invalid token spraying.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Run with Docker Compose
 
-## Learn more
+```bash
+docker compose up --build
+```
 
-* Official website: https://www.phoenixframework.org/
-* Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+```bash
+curl -X POST http://localhost:4000/api \
+  -H "Content-Type: application/json" \
+  -d '{"query":"mutation($e:String!,$p:String!){signUp(email:$e,password:$p){token user{id email}}}","variables":{"e":"mobile@example.com","p":"super_secure_password_123"}}'
+
+curl -X POST http://localhost:4000/api \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{"query":"query { me { id email } }"}'
+```

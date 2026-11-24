@@ -1,0 +1,59 @@
+defmodule AbsintheInitializerDemo.Auth.SessionCache.Cachex do
+  @moduledoc """
+  Cachex-backed session cache adapter.
+
+  Add `{Cachex, name: :absinthe_initializer_demo_session_cache}` to your supervision tree in
+  `lib/absinthe_initializer_demo/application.ex`.
+  """
+
+  @behaviour AbsintheInitializerDemo.Auth.SessionCache
+
+  @cache_name :absinthe_initializer_demo_session_cache
+
+  @impl AbsintheInitializerDemo.Auth.SessionCache
+  def get(token) when is_binary(token) do
+    case Cachex.get(@cache_name, {:session, token}) do
+      {:ok, nil} -> :miss
+      {:ok, user} -> {:ok, user}
+      _ -> :miss
+    end
+  end
+
+  @impl AbsintheInitializerDemo.Auth.SessionCache
+  def put(token, user, ttl_seconds) when is_binary(token) and is_integer(ttl_seconds) do
+    ttl_ms = :timer.seconds(ttl_seconds)
+    Cachex.put(@cache_name, {:session, token}, user, ttl: ttl_ms)
+
+    user_key = {:user_tokens, user.id}
+
+    Cachex.get_and_update(@cache_name, user_key, fn
+      nil -> {:commit, MapSet.new([token])}
+      tokens -> {:commit, MapSet.put(tokens, token)}
+    end)
+
+    Cachex.expire(@cache_name, user_key, ttl_ms)
+    :ok
+  end
+
+  @impl AbsintheInitializerDemo.Auth.SessionCache
+  def delete(token) when is_binary(token) do
+    Cachex.del(@cache_name, {:session, token})
+    :ok
+  end
+
+  @impl AbsintheInitializerDemo.Auth.SessionCache
+  def delete_user_sessions(user_id) do
+    user_key = {:user_tokens, user_id}
+
+    case Cachex.get(@cache_name, user_key) do
+      {:ok, %MapSet{} = tokens} ->
+        Enum.each(tokens, &Cachex.del(@cache_name, {:session, &1}))
+        Cachex.del(@cache_name, user_key)
+
+      _ ->
+        :ok
+    end
+
+    :ok
+  end
+end

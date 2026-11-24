@@ -1,0 +1,110 @@
+defmodule AbsintheInitializerDemo.Auth.Config do
+  @moduledoc """
+  Runtime configuration for `AbsintheInitializerDemo` GraphQL authentication.
+
+  Configure in `config/config.exs` (and override per environment in `config/runtime.exs`):
+
+      config :absinthe_initializer_demo, AbsintheInitializerDemo.Auth,
+        transport: :bearer,
+        cookie_name: "_absinthe_initializer_demo_session",
+        cookie_opts: [
+          http_only: true,
+          secure: true,
+          same_site: "Lax",
+          path: "/",
+          max_age: 604_800
+        ],
+        csrf_protection: true,
+        trust_proxy: false,
+        session_ttl_days: 7,
+        cache: :cachex,
+        cache_ttl_seconds: 300,
+        rate_limit: [enabled: true, max_requests: 10, window_seconds: 60]
+  """
+
+  @app :absinthe_initializer_demo
+  @config_key AbsintheInitializerDemo.Auth
+
+  def all do
+    Application.get_env(@app, @config_key, [])
+  end
+
+  @doc "Supported values: `:bearer`, `:cookie`, `:both`."
+  def transport do
+    Keyword.get(all(), :transport, :bearer)
+  end
+
+  def cookies_enabled? do
+    transport() in [:cookie, :both]
+  end
+
+  def bearer_enabled? do
+    transport() in [:bearer, :both]
+  end
+
+  def cookie_name do
+    Keyword.get(all(), :cookie_name, "_absinthe_initializer_demo_session")
+  end
+
+  def cookie_opts do
+    defaults = [
+      http_only: true,
+      secure: false,
+      same_site: "Lax",
+      path: "/",
+      max_age: session_ttl_days() * 86_400
+    ]
+
+    Keyword.merge(defaults, Keyword.get(all(), :cookie_opts, []))
+  end
+
+  @doc """
+  Enforces CSRF checks on cookie-authenticated GraphQL requests (rejects `Sec-Fetch-Site: cross-site`
+  and non-JSON POST requests). Defaults to `true`.
+  """
+  def csrf_protection? do
+    Keyword.get(all(), :csrf_protection, true)
+  end
+
+  @doc """
+  When `false` (default), ignores `X-Forwarded-For` headers and uses `conn.remote_ip` directly
+  to prevent rate-limit spoofing. Enable only behind a trusted reverse proxy.
+  """
+  def trust_proxy? do
+    Keyword.get(all(), :trust_proxy, false)
+  end
+
+  def session_ttl_days do
+    Keyword.get(all(), :session_ttl_days, 7)
+  end
+
+  @doc "Supported values: `:ets`, `:cachex`, `:none`, or a custom module implementing `SessionCache`."
+  def cache do
+    Keyword.get(all(), :cache, :cachex)
+  end
+
+  def cache_ttl_seconds do
+    Keyword.get(all(), :cache_ttl_seconds, 300)
+  end
+
+  def rate_limit_config do
+    defaults = [enabled: true, max_requests: 10, window_seconds: 60]
+    Keyword.merge(defaults, Keyword.get(all(), :rate_limit, []))
+  end
+
+  def rate_limit_enabled? do
+    Keyword.get(rate_limit_config(), :enabled, true)
+  end
+
+  def rate_limit_max_requests do
+    Keyword.get(rate_limit_config(), :max_requests, 10)
+  end
+
+  def rate_limit_window_seconds do
+    Keyword.get(rate_limit_config(), :window_seconds, 60)
+  end
+
+  def rate_limit_invalid_token_max_requests do
+    Keyword.get(rate_limit_config(), :invalid_token_max_requests, 20)
+  end
+end

@@ -39,6 +39,12 @@ defmodule AbsintheInitializerDemo.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:absinthe, "~> 1.7"},
+      {:absinthe_plug, "~> 1.5"},
+      {:absinthe_phoenix, "~> 2.0"},
+      {:bcrypt_elixir, "~> 3.0"},
+      {:cachex, "~> 4.0"},
+
       {:absinthe_initializer,
        github: "hiramcastillo36/absinthe_initializer",
        branch: "feat/auth-v2",

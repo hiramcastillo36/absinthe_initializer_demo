@@ -8,6 +8,8 @@ defmodule AbsintheInitializerDemo.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      {Cachex, name: :absinthe_initializer_demo_session_cache},
+      AbsintheInitializerDemo.Auth.RateLimiter,
       AbsintheInitializerDemoWeb.Telemetry,
       AbsintheInitializerDemo.Repo,
       {DNSCluster, query: Application.get_env(:absinthe_initializer_demo, :dns_cluster_query) || :ignore},
