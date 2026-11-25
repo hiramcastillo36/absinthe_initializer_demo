@@ -1,0 +1,63 @@
+name: CI & Security
+
+on:
+  push:
+    branches: [main, basic-no-auth, auth-cookie-only, auth-bearer-cachex, auth-minimal]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  security_and_test:
+    name: Security (Sobelow + Audit) & Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.18.3"
+          otp-version: "27.2"
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile with warnings as errors
+        env:
+          MIX_ENV: test
+        run: mix compile --warnings-as-errors
+
+      - name: Audit Hex packages
+        run: mix hex.audit
+
+      - name: Audit dependencies for known CVEs
+        run: mix deps.audit
+
+      - name: Run Sobelow SAST scan
+        run: mix sobelow --config --exit
+
+      - name: Run tests
+        env:
+          MIX_ENV: test
+        run: |
+          mix ecto.create
+          mix ecto.migrate
+          mix test

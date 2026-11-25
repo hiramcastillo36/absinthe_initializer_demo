@@ -1,5 +1,9 @@
 import Config
 
+# Enforce HTTPS in production (satisfies Sobelow Config.HTTPS)
+config :absinthe_initializer_demo, AbsintheInitializerDemoWeb.Endpoint,
+  force_ssl: [rewrite_on: [:x_forwarded_proto]]
+
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req
 
